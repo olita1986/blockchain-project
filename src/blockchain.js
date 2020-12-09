@@ -214,7 +214,6 @@ class Blockchain {
                 if (index > 0) {
                     block.validate()
                         .then(isValid => {
-                            // let validation = isValid && block.previousBlockHash === self.chain[index - 1].hash;
                             if (!isValid) {
                                 errorLog.push(Error(`Block ${block.hash}: is not valid`));
                             }
