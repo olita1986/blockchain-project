@@ -71,8 +71,8 @@ class Blockchain {
                 block.previousBlockHash = self.chain[self.chain.length-1].hash;
             }
 
-            block.hash = SHA256(JSON.stringify(block)).toString();
             self.height += 1;
+            block.hash = SHA256(JSON.stringify(block)).toString();
             self.chain.push(block)
             resolve(block);
         });
@@ -115,16 +115,22 @@ class Blockchain {
             const messageTime = parseInt(message.split(':')[1]);
             const currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
 
-            console.log(messageTime, currentTime);
             if (currentTime - messageTime < 300) {
                 if (bitcoinMessage.verify(message, address, signature)) {
                     let block = new BlockClass.Block({"owner":address, star});
-                    self._addBlock(block)
-                        .then( addedBlock => {
-                            resolve(addedBlock);
-                        })
-                        .catch( error => {
-                            reject(error);
+                    self.validateChain()
+                        .then(errors => {
+                            if (errors.includes(false)) {
+                                reject(Error('invalid chain'));
+                            } else {
+                                self._addBlock(block)
+                                    .then( addedBlock => {
+                                        resolve(addedBlock);
+                                    })
+                                    .catch( error => {
+                                        reject(error);
+                                    })
+                            }
                         })
                 } else {
                     reject(Error('verification failed'));
@@ -205,11 +211,13 @@ class Blockchain {
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
             self.chain.forEach((block, index) => {
-                block.validate()
-                    .then(isValid => {
-                        let validation = isValid && block.previousBlockHash === self.chain[index - 1].hash;
-                        errorLog.push(validation);
-                    });
+                if (index > 0) {
+                    block.validate()
+                        .then(isValid => {
+                            let validation = isValid && block.previousBlockHash === self.chain[index - 1].hash;
+                            errorLog.push(validation);
+                        });
+                }
             })
 
             resolve(errorLog);
