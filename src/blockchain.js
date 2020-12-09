@@ -120,7 +120,7 @@ class Blockchain {
                     let block = new BlockClass.Block({"owner":address, star});
                     self.validateChain()
                         .then(errors => {
-                            if (errors.includes(false)) {
+                            if (errors.length != 0) {
                                 reject(Error('invalid chain'));
                             } else {
                                 self._addBlock(block)
@@ -214,8 +214,13 @@ class Blockchain {
                 if (index > 0) {
                     block.validate()
                         .then(isValid => {
-                            let validation = isValid && block.previousBlockHash === self.chain[index - 1].hash;
-                            errorLog.push(validation);
+                            // let validation = isValid && block.previousBlockHash === self.chain[index - 1].hash;
+                            if (!isValid) {
+                                errorLog.push(Error(`Block ${block.hash}: is not valid`));
+                            }
+                            if (!(block.previousBlockHash === self.chain[index - 1].hash)) {
+                                errorLog.push(Error(`Block ${block.hash}: previous Block hash doesnt match`));
+                            } 
                         });
                 }
             })
