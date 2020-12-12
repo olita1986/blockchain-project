@@ -63,7 +63,7 @@ class Blockchain {
      */
     _addBlock(block) {
         let self = this;
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             block.height = self.chain.length;
             block.time = new Date().getTime().toString().slice(0,-3);
 
@@ -72,9 +72,13 @@ class Blockchain {
             }
 
             self.height += 1;
-            block.hash = SHA256(JSON.stringify(block)).toString();
-            self.chain.push(block)
-            resolve(block);
+            try {
+                block.hash = SHA256(JSON.stringify(block)).toString();
+                self.chain.push(block)
+                resolve(block);
+            } catch {
+                reject(Error('Block could not be created'));
+            }
         });
     }
 
@@ -118,20 +122,19 @@ class Blockchain {
             if (currentTime - messageTime < 300) {
                 if (bitcoinMessage.verify(message, address, signature)) {
                     let block = new BlockClass.Block({"owner":address, star});
-                    self.validateChain()
-                        .then(errors => {
-                            if (errors.length != 0) {
-                                reject(Error('invalid chain'));
-                            } else {
-                                self._addBlock(block)
-                                    .then( addedBlock => {
-                                        resolve(addedBlock);
-                                    })
-                                    .catch( error => {
-                                        reject(error);
-                                    })
-                            }
-                        })
+
+                    const errors = await self.validateChain();
+
+                    if (errors.length != 0) {
+                        reject(Error('invalid chain'));
+                    } else {
+                        try {
+                            const addedBlock = await self._addBlock(block);
+                            resolve(addedBlock);
+                        } catch(error) {
+                            reject(error);
+                        }
+                    }
                 } else {
                     reject(Error('verification failed'));
                 }
@@ -187,13 +190,11 @@ class Blockchain {
         let self = this;
         let stars = [];
         return new Promise((resolve, reject) => {
-            self.chain.forEach(block => {
-                block.getBData()
-                    .then(start => {
-                        if (start.owner == address) {
-                            stars.push(start)
-                        }
-                    })
+            self.chain.forEach(async block => {
+                const start = await block.getBData();
+                if (start.owner == address) {
+                    stars.push(start)
+                }
             })
 
             resolve(stars);
@@ -209,18 +210,16 @@ class Blockchain {
     validateChain() {
         let self = this;
         let errorLog = [];
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             self.chain.forEach((block, index) => {
                 if (index > 0) {
-                    block.validate()
-                        .then(isValid => {
-                            if (!isValid) {
-                                errorLog.push(Error(`Block ${block.hash}: is not valid`));
-                            }
-                            if (!(block.previousBlockHash === self.chain[index - 1].hash)) {
-                                errorLog.push(Error(`Block ${block.hash}: previous Block hash doesnt match`));
-                            } 
-                        });
+                    const isValid = block.validate();
+                    if (!isValid) {
+                        errorLog.push(Error(`Block ${block.hash}: is not valid`));
+                    }
+                    if (!(block.previousBlockHash === self.chain[index - 1].hash)) {
+                        errorLog.push(Error(`Block ${block.hash}: previous Block hash doesnt match`));
+                    } 
                 }
             })
 
